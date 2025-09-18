@@ -12,6 +12,19 @@ class ThreadlineGame {
         this.startTime = null;
         this.moves = 0;
         this.solved = false;
+        this.score = 0;
+        this.difficulty = 'medium'; // easy, medium, hard, expert
+        this.hintsUsed = 0;
+        this.maxHints = 3;
+        this.achievements = [];
+        
+        // Difficulty configurations - simplified to 5x5 with 1-5 numbers
+        this.difficultyConfig = {
+            easy: { gridSize: 5, maxNumber: 5, wallCount: 2, timeBonus: 100 },
+            medium: { gridSize: 5, maxNumber: 5, wallCount: 3, timeBonus: 150 },
+            hard: { gridSize: 5, maxNumber: 5, wallCount: 4, timeBonus: 200 },
+            expert: { gridSize: 5, maxNumber: 5, wallCount: 5, timeBonus: 300 }
+        };
         
         this.init();
     }
@@ -33,8 +46,14 @@ class ThreadlineGame {
             this.showHint();
         });
 
+
         document.getElementById('threadline-new')?.addEventListener('click', () => {
             this.newPuzzle();
+        });
+
+        // Difficulty selector
+        document.getElementById('difficulty-select')?.addEventListener('change', (e) => {
+            this.setDifficulty(e.target.value);
         });
 
         // Global mouse events for better drag experience
@@ -45,6 +64,22 @@ class ThreadlineGame {
         document.addEventListener('mouseleave', () => {
             this.isDrawing = false;
         });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 'h':
+                        e.preventDefault();
+                        this.showHint();
+                        break;
+                    case 'r':
+                        e.preventDefault();
+                        this.resetPath();
+                        break;
+                }
+            }
+        });
     }
 
     generateDailyPuzzle() {
@@ -53,6 +88,14 @@ class ThreadlineGame {
     }
 
     generatePuzzle(seed = Date.now()) {
+        // Get difficulty configuration
+        const config = this.difficultyConfig[this.difficulty];
+        this.gridSize = config.gridSize;
+        this.maxNumber = config.maxNumber;
+        
+        // Generate Hamiltonian path (visits every cell exactly once)
+        const hamiltonianPath = this.generateHamiltonianPath(seed);
+        
         // Initialize empty grid
         this.grid = Array(this.gridSize).fill().map(() => 
             Array(this.gridSize).fill().map(() => ({ 
@@ -63,41 +106,44 @@ class ThreadlineGame {
             }))
         );
 
-        // Generate number positions using seed
+        // Place exactly 5 numbers (1-5) at strategic positions along the path
         this.numbers = [];
-        const positions = [];
         
-        // Create all possible positions
-        for (let row = 0; row < this.gridSize; row++) {
-            for (let col = 0; col < this.gridSize; col++) {
-                positions.push({ row, col });
-            }
-        }
-
-        // Shuffle positions with seed
-        const shuffledPositions = window.logicGamesApp.shuffleArray(positions, seed);
+        // Calculate positions for numbers 1-5
+        const totalCells = hamiltonianPath.length;
+        const numberPositions = [];
         
-        // Place numbers 1-9
-        for (let i = 1; i <= this.maxNumber; i++) {
-            const pos = shuffledPositions[i - 1];
+        // Position 1: Start of path
+        numberPositions.push(0);
+        
+        // Position 2: Around 25% through the path
+        numberPositions.push(Math.floor(totalCells * 0.25));
+        
+        // Position 3: Around 50% through the path
+        numberPositions.push(Math.floor(totalCells * 0.5));
+        
+        // Position 4: Around 75% through the path
+        numberPositions.push(Math.floor(totalCells * 0.75));
+        
+        // Position 5: End of path
+        numberPositions.push(totalCells - 1);
+        
+        // Place the numbers
+        for (let i = 0; i < this.maxNumber; i++) {
+            const posIndex = numberPositions[i];
+            const pos = hamiltonianPath[posIndex];
+            
             this.grid[pos.row][pos.col] = {
                 type: 'number',
-                number: i,
+                number: i + 1,
                 visited: false,
                 wall: false
             };
-            this.numbers.push({ number: i, row: pos.row, col: pos.col });
+            this.numbers.push({ number: i + 1, row: pos.row, col: pos.col });
         }
 
-        // Add some walls to make it challenging
-        const wallCount = window.logicGamesApp.randomInt(3, 6, seed + 100);
-        for (let i = 0; i < wallCount; i++) {
-            const pos = shuffledPositions[this.maxNumber + i];
-            if (this.grid[pos.row][pos.col].type === 'empty') {
-                this.grid[pos.row][pos.col].wall = true;
-                this.grid[pos.row][pos.col].type = 'wall';
-            }
-        }
+        // Add walls strategically (not blocking the path)
+        this.addStrategicWalls(seed, hamiltonianPath);
 
         // Reset game state
         this.path = [];
@@ -106,6 +152,121 @@ class ThreadlineGame {
         this.solved = false;
         this.startTime = Date.now();
         this.moves = 0;
+        this.hintsUsed = 0;
+        this.undoStack = [];
+        this.redoStack = [];
+        this.score = 0;
+    }
+
+    generateHamiltonianPath(seed) {
+        // Use a simplified Hamiltonian path generator for 5x5 grid
+        const path = [];
+        const visited = new Set();
+        
+        // Start from a random position
+        const startRow = window.logicGamesApp.randomInt(0, this.gridSize - 1, seed);
+        const startCol = window.logicGamesApp.randomInt(0, this.gridSize - 1, seed);
+        
+        // Use backtracking to find a Hamiltonian path
+        const stack = [{ row: startRow, col: startCol, path: [{ row: startRow, col: startCol }] }];
+        
+        while (stack.length > 0) {
+            const current = stack.pop();
+            const { row, col, path: currentPath } = current;
+            
+            if (currentPath.length === this.gridSize * this.gridSize) {
+                return currentPath; // Found complete Hamiltonian path
+            }
+            
+            // Try all possible directions
+            const directions = [
+                { dr: -1, dc: 0 }, // up
+                { dr: 1, dc: 0 },  // down
+                { dr: 0, dc: -1 }, // left
+                { dr: 0, dc: 1 }   // right
+            ];
+            
+            // Shuffle directions for variety
+            const shuffledDirs = window.logicGamesApp.shuffleArray(directions, seed + currentPath.length);
+            
+            for (const dir of shuffledDirs) {
+                const newRow = row + dir.dr;
+                const newCol = col + dir.dc;
+                const key = `${newRow},${newCol}`;
+                
+                if (newRow >= 0 && newRow < this.gridSize && 
+                    newCol >= 0 && newCol < this.gridSize &&
+                    !visited.has(key)) {
+                    
+                    visited.add(key);
+                    stack.push({
+                        row: newRow,
+                        col: newCol,
+                        path: [...currentPath, { row: newRow, col: newCol }]
+                    });
+                }
+            }
+        }
+        
+        // Fallback: generate a simple snake pattern if Hamiltonian path fails
+        return this.generateSnakePath();
+    }
+
+    generateSnakePath() {
+        const path = [];
+        let direction = 1; // 1 for right, -1 for left
+        let row = 0;
+        
+        for (let i = 0; i < this.gridSize; i++) {
+            if (direction === 1) {
+                // Go right
+                for (let col = 0; col < this.gridSize; col++) {
+                    path.push({ row: i, col: col });
+                }
+            } else {
+                // Go left
+                for (let col = this.gridSize - 1; col >= 0; col--) {
+                    path.push({ row: i, col: col });
+                }
+            }
+            direction *= -1; // Reverse direction
+        }
+        
+        return path;
+    }
+
+    addStrategicWalls(seed, hamiltonianPath) {
+        const config = this.difficultyConfig[this.difficulty];
+        const wallCount = config.wallCount;
+        
+        // Create a set of path positions for quick lookup
+        const pathSet = new Set();
+        for (const pos of hamiltonianPath) {
+            pathSet.add(`${pos.row},${pos.col}`);
+        }
+        
+        // Find cells that are not on the path and not numbers
+        const availableCells = [];
+        for (let row = 0; row < this.gridSize; row++) {
+            for (let col = 0; col < this.gridSize; col++) {
+                const key = `${row},${col}`;
+                if (!pathSet.has(key) && this.grid[row][col].type === 'empty') {
+                    availableCells.push({ row, col });
+                }
+            }
+        }
+        
+        // Shuffle and place walls
+        const shuffledCells = window.logicGamesApp.shuffleArray(availableCells, seed + 1000);
+        let wallsPlaced = 0;
+        
+        for (const cell of shuffledCells) {
+            if (wallsPlaced >= wallCount) break;
+            
+            this.grid[cell.row][cell.col].wall = true;
+            this.grid[cell.row][cell.col].type = 'wall';
+            wallsPlaced++;
+        }
     }
 
     renderGrid() {
@@ -322,6 +483,8 @@ class ThreadlineGame {
     addToPath(row, col) {
         const gridCell = this.grid[row][col];
         
+        // Save state for undo
+        
         // Add path line if not the first cell
         if (this.path.length > 0) {
             const lastPos = this.path[this.path.length - 1];
@@ -340,6 +503,11 @@ class ThreadlineGame {
         // If it's a number, update current target
         if (gridCell.type === 'number') {
             this.currentNumber = gridCell.number + 1;
+            // Bonus points for finding numbers in sequence
+            this.score += 50;
+        } else {
+            // Points for each move
+            this.score += 10;
         }
 
         this.moves++;
@@ -360,7 +528,8 @@ class ThreadlineGame {
 
         if (this.path.length < 2) return;
 
-        const cellSize = 60;
+        // Get actual cell size from CSS
+        const cellSize = this.getCellSize();
         const lineWidth = 4;
 
         for (let i = 0; i < this.path.length - 1; i++) {
@@ -375,11 +544,12 @@ class ThreadlineGame {
             const line = document.createElement('div');
             line.className = 'path-line';
             
-            // Calculate positions from cell centers
-            const currentCenterX = currentCol * cellSize + cellSize / 2;
-            const currentCenterY = currentRow * cellSize + cellSize / 2;
-            const nextCenterX = nextCol * cellSize + cellSize / 2;
-            const nextCenterY = nextRow * cellSize + cellSize / 2;
+            // Calculate positions from cell centers (accounting for grid gaps)
+            const gridGap = 2; // CSS gap between cells
+            const currentCenterX = currentCol * (cellSize + gridGap) + cellSize / 2;
+            const currentCenterY = currentRow * (cellSize + gridGap) + cellSize / 2;
+            const nextCenterX = nextCol * (cellSize + gridGap) + cellSize / 2;
+            const nextCenterY = nextRow * (cellSize + gridGap) + cellSize / 2;
 
             if (currentRow === nextRow) {
                 // Horizontal line
@@ -413,6 +583,7 @@ class ThreadlineGame {
         }
 
         // Add dots at path intersections for better continuity
+        const gridGap = 2; // CSS gap between cells
         for (let i = 0; i < this.path.length; i++) {
             const cellIndex = this.path[i];
             const row = cellIndex.row;
@@ -421,8 +592,8 @@ class ThreadlineGame {
             const dot = document.createElement('div');
             dot.className = 'path-dot';
             dot.style.position = 'absolute';
-            dot.style.left = `${col * cellSize + cellSize / 2 - 3}px`;
-            dot.style.top = `${row * cellSize + cellSize / 2 - 3}px`;
+            dot.style.left = `${col * (cellSize + gridGap) + cellSize / 2 - 3}px`;
+            dot.style.top = `${row * (cellSize + gridGap) + cellSize / 2 - 3}px`;
             dot.style.width = '6px';
             dot.style.height = '6px';
             dot.style.backgroundColor = '#6366f1';
@@ -480,25 +651,48 @@ class ThreadlineGame {
         const endTime = Date.now();
         const totalTime = Math.floor((endTime - this.startTime) / 1000);
         
+        // Calculate final score
+        const config = this.difficultyConfig[this.difficulty];
+        const timeBonus = Math.max(0, config.timeBonus - totalTime * 2);
+        const efficiencyBonus = Math.max(0, 100 - this.moves);
+        const hintPenalty = this.hintsUsed * 25;
+        
+        this.score += timeBonus + efficiencyBonus - hintPenalty;
+        this.score = Math.max(0, this.score);
+        
+        // Check for achievements
+        const newAchievements = this.checkAchievements();
+        
         // Save completion data
         const completionData = {
             date: new Date().toDateString(),
             time: totalTime,
-            moves: this.moves
+            moves: this.moves,
+            score: this.score,
+            difficulty: this.difficulty,
+            hintsUsed: this.hintsUsed,
+            achievements: this.achievements
         };
         
         window.logicGamesApp.saveGameData('threadline-daily', completionData);
 
-        // Show success modal
+        // Show success modal with enhanced stats
         setTimeout(() => {
             window.logicGamesApp.showModal(
                 'Threadline Solved!',
-                'Excellent work! You\'ve successfully connected all numbers and filled every cell.',
+                `Excellent work! You've successfully connected all numbers and filled every cell.${newAchievements.length > 0 ? ' New achievements unlocked!' : ''}`,
                 {
                     time: window.logicGamesApp.formatTime(totalTime),
-                    moves: this.moves.toString()
+                    moves: `${this.moves} moves`,
+                    score: `${this.score} points`,
+                    difficulty: this.difficulty.charAt(0).toUpperCase() + this.difficulty.slice(1)
                 }
             );
+            
+            // Generate new random level after showing completion
+            setTimeout(() => {
+                this.newPuzzle();
+            }, 2000); // Wait 2 seconds after modal shows
         }, 500);
     }
 
@@ -547,8 +741,9 @@ class ThreadlineGame {
     }
 
     newPuzzle() {
-        const seed = Date.now() + Math.random() * 1000;
-        this.generatePuzzle(Math.floor(seed));
+        // Generate a truly random seed for variety
+        const seed = Math.floor(Math.random() * 1000000) + Date.now();
+        this.generatePuzzle(seed);
         this.renderGrid();
         this.updateStatus();
     }
@@ -568,7 +763,92 @@ class ThreadlineGame {
                 this.numbers.filter(num => this.grid[num.row][num.col].visited).length;
             cellsRemainingEl.textContent = Math.max(0, totalCells - visitedCells);
         }
+
+        // Update score display if it exists
+        const scoreEl = document.getElementById('threadline-score');
+        if (scoreEl) {
+            scoreEl.textContent = this.score;
+        }
+
+        // Update hints display if it exists
+        const hintsEl = document.getElementById('threadline-hints');
+        if (hintsEl) {
+            hintsEl.textContent = `${this.maxHints - this.hintsUsed}`;
+        }
     }
+
+    getCellSize() {
+        // Get the actual cell size from the first cell's computed style
+        const container = document.getElementById('threadline-grid');
+        if (!container) return 70; // fallback to default
+        
+        const firstCell = container.querySelector('.threadline-cell');
+        if (!firstCell) return 70; // fallback to default
+        
+        const computedStyle = window.getComputedStyle(firstCell);
+        return parseInt(computedStyle.width);
+    }
+
+
+    // Difficulty management
+    setDifficulty(difficulty) {
+        if (this.difficultyConfig[difficulty]) {
+            this.difficulty = difficulty;
+            this.generatePuzzle();
+            this.renderGrid();
+            this.updateStatus();
+        }
+    }
+
+    // Enhanced hint system
+    showHint() {
+        if (this.solved || this.hintsUsed >= this.maxHints) return;
+
+        this.hintsUsed++;
+        this.score = Math.max(0, this.score - 25); // Penalty for using hints
+
+        // Find the current target number
+        const targetNumber = this.numbers.find(num => num.number === this.currentNumber);
+        if (!targetNumber) return;
+
+        // Highlight the target briefly
+        const targetCell = document.querySelector(
+            `[data-row="${targetNumber.row}"][data-col="${targetNumber.col}"]`
+        );
+        
+        if (targetCell) {
+            targetCell.style.animation = 'pulse 0.5s ease-in-out 3';
+            setTimeout(() => {
+                targetCell.style.animation = '';
+            }, 1500);
+        }
+
+        this.updateStatus();
+    }
+
+    // Achievement system
+    checkAchievements() {
+        const newAchievements = [];
+        
+        // Speed achievements
+        if (this.moves <= 20 && !this.achievements.includes('speed_demon')) {
+            newAchievements.push('speed_demon');
+        }
+        
+        // Perfect score achievements
+        if (this.hintsUsed === 0 && !this.achievements.includes('no_hints')) {
+            newAchievements.push('no_hints');
+        }
+        
+        // Difficulty achievements
+        if (this.difficulty === 'expert' && !this.achievements.includes('expert_solver')) {
+            newAchievements.push('expert_solver');
+        }
+        
+        this.achievements.push(...newAchievements);
+        return newAchievements;
+    }
+
 }
 
 // Initialize global mouse listeners when script loads

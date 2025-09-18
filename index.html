@@ -78,10 +78,20 @@
                     </div>
                 </div>
 
-                <div class="game-controls">
-                    <button id="threadline-reset" class="control-btn">Reset</button>
-                    <button id="threadline-hint" class="control-btn">Hint</button>
-                    <button id="threadline-new" class="control-btn primary">New Puzzle</button>
+        <div class="game-controls">
+            <button id="threadline-reset" class="control-btn">Reset</button>
+            <button id="threadline-hint" class="control-btn">Hint</button>
+            <button id="threadline-new" class="control-btn primary">New Puzzle</button>
+        </div>
+
+                <div class="difficulty-selector">
+                    <label for="difficulty-select">Difficulty:</label>
+                    <select id="difficulty-select" class="difficulty-select">
+                        <option value="easy">Easy (2 walls)</option>
+                        <option value="medium" selected>Medium (3 walls)</option>
+                        <option value="hard">Hard (4 walls)</option>
+                        <option value="expert">Expert (5 walls)</option>
+                    </select>
                 </div>
 
                 <div class="game-status">
@@ -92,6 +102,14 @@
                     <div class="status-item">
                         <span class="status-label">Cells Left:</span>
                         <span id="cells-remaining" class="status-value">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Score:</span>
+                        <span id="threadline-score" class="status-value">0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Hints:</span>
+                        <span id="threadline-hints" class="status-value">3</span>
                     </div>
                 </div>
             </div>
@@ -120,7 +138,7 @@
                 </div>
 
                 <div class="game-controls">
-                    <button id="bee-start" class="control-btn primary">Start Set</button>
+                    <button id="bee-start" class="control-btn primary">Start Game</button>
                     <button id="bee-reset" class="control-btn">Reset Path</button>
                     <button id="bee-new-level" class="control-btn">New Level</button>
                 </div>
@@ -160,6 +178,28 @@
                 <div class="modal-actions">
                     <button id="play-again" class="modal-btn primary">Play Again</button>
                     <button id="back-home" class="modal-btn">Back to Home</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Set Completion Modal -->
+        <div id="set-completion-modal" class="modal">
+            <div class="modal-content set-completion">
+                <div class="modal-header">
+                    <div class="completion-icon">🎉</div>
+                    <h3 id="set-completion-title">Set Complete!</h3>
+                </div>
+                <div class="modal-body">
+                    <p id="set-completion-message">Great job! You've completed this set.</p>
+                    <div class="set-progress">
+                        <div class="progress-bar">
+                            <div id="progress-fill" class="progress-fill"></div>
+                        </div>
+                        <p id="progress-text">Set 1 of 5</p>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button id="continue-next-set" class="modal-btn primary">Continue to Next Set</button>
                 </div>
             </div>
         </div>

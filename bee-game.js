@@ -17,13 +17,13 @@ class BeeGame {
         this.startTime = null;
         this.isDrawing = false;
         
-        // Level configuration
+        // Level configuration - progressive difficulty
         this.levelConfig = [
-            { set: 1, gridSize: 5, bugCount: 3 },
+            { set: 1, gridSize: 5, bugCount: 2 },
             { set: 2, gridSize: 5, bugCount: 3 },
             { set: 3, gridSize: 5, bugCount: 4 },
             { set: 4, gridSize: 5, bugCount: 5 },
-            { set: 5, gridSize: 6, bugCount: 4 }
+            { set: 5, gridSize: 6, bugCount: 6 }
         ];
 
         this.init();
@@ -171,13 +171,15 @@ class BeeGame {
 
         const gridCell = this.grid[row][col];
 
-        // Set cell content and type
-        if (gridCell.type === 'bee') {
-            cell.classList.add('bee');
-            cell.textContent = '🐝';
-        } else if (gridCell.type === 'flower') {
-            cell.classList.add('flower');
-            cell.textContent = '🌸';
+        // Set cell content and type - bee and flower only visible after bug flash
+        if (this.gameState !== 'showing-bugs') {
+            if (gridCell.type === 'bee') {
+                cell.classList.add('bee');
+                cell.textContent = '🐝';
+            } else if (gridCell.type === 'flower') {
+                cell.classList.add('flower');
+                cell.textContent = '🌸';
+            }
         }
 
         // Show bugs during flash phase
@@ -396,7 +398,8 @@ class BeeGame {
 
         if (this.path.length < 2) return;
 
-        const cellSize = 60;
+        // Get actual cell size from CSS
+        const cellSize = this.getCellSize();
         const lineWidth = 4;
 
         for (let i = 0; i < this.path.length - 1; i++) {
@@ -406,11 +409,12 @@ class BeeGame {
             const line = document.createElement('div');
             line.className = 'path-line';
             
-            // Calculate positions from cell centers
-            const currentCenterX = current.col * cellSize + cellSize / 2;
-            const currentCenterY = current.row * cellSize + cellSize / 2;
-            const nextCenterX = next.col * cellSize + cellSize / 2;
-            const nextCenterY = next.row * cellSize + cellSize / 2;
+            // Calculate positions from cell centers (accounting for grid gaps)
+            const gridGap = 2; // CSS gap between cells
+            const currentCenterX = current.col * (cellSize + gridGap) + cellSize / 2;
+            const currentCenterY = current.row * (cellSize + gridGap) + cellSize / 2;
+            const nextCenterX = next.col * (cellSize + gridGap) + cellSize / 2;
+            const nextCenterY = next.row * (cellSize + gridGap) + cellSize / 2;
 
             if (current.row === next.row) {
                 // Horizontal line
@@ -444,14 +448,15 @@ class BeeGame {
         }
 
         // Add dots at path intersections for better continuity
+        const gridGap = 2; // CSS gap between cells
         for (let i = 0; i < this.path.length; i++) {
             const pathPos = this.path[i];
             
             const dot = document.createElement('div');
             dot.className = 'path-dot';
             dot.style.position = 'absolute';
-            dot.style.left = `${pathPos.col * cellSize + cellSize / 2 - 3}px`;
-            dot.style.top = `${pathPos.row * cellSize + cellSize / 2 - 3}px`;
+            dot.style.left = `${pathPos.col * (cellSize + gridGap) + cellSize / 2 - 3}px`;
+            dot.style.top = `${pathPos.row * (cellSize + gridGap) + cellSize / 2 - 3}px`;
             dot.style.width = '6px';
             dot.style.height = '6px';
             dot.style.backgroundColor = '#22c55e';
@@ -496,8 +501,9 @@ class BeeGame {
             flowerCell.style.animation = 'pulse 0.5s ease-in-out 3';
         }
 
+        // Show set completion modal
         setTimeout(() => {
-            this.nextSet();
+            window.logicGamesApp.showSetCompletionModal(this.currentSet, this.maxSets);
         }, 1000);
     }
 
@@ -508,6 +514,18 @@ class BeeGame {
             this.renderGrid();
             this.updateStatus();
             this.resetControls();
+        } else {
+            this.levelCompleted();
+        }
+    }
+
+    continueToNextSet() {
+        if (this.currentSet < this.maxSets) {
+            this.nextSet();
+            // Auto start the next set with bug flash
+            setTimeout(() => {
+                this.startSet();
+            }, 500); // Small delay to let the grid render
         } else {
             this.levelCompleted();
         }
@@ -606,5 +624,17 @@ class BeeGame {
         if (setEl) setEl.textContent = `Set ${this.currentSet}/${this.maxSets}`;
         if (livesEl) livesEl.textContent = this.lives;
         if (scoreEl) scoreEl.textContent = this.score;
+    }
+
+    getCellSize() {
+        // Get the actual cell size from the first cell's computed style
+        const container = document.getElementById('bee-grid');
+        if (!container) return 80; // fallback to default
+        
+        const firstCell = container.querySelector('.bee-cell');
+        if (!firstCell) return 80; // fallback to default
+        
+        const computedStyle = window.getComputedStyle(firstCell);
+        return parseInt(computedStyle.width);
     }
 }

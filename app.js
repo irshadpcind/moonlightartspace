@@ -61,10 +61,24 @@ class LogicGamesApp {
             this.navigateTo('home');
         });
 
+        // Set completion modal buttons
+        document.getElementById('continue-next-set')?.addEventListener('click', () => {
+            this.hideSetCompletionModal();
+            if (this.beeGame) {
+                this.beeGame.continueToNextSet();
+            }
+        });
+
         // Close modal on outside click
         document.getElementById('success-modal')?.addEventListener('click', (e) => {
             if (e.target.id === 'success-modal') {
                 this.hideModal();
+            }
+        });
+
+        document.getElementById('set-completion-modal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'set-completion-modal') {
+                this.hideSetCompletionModal();
             }
         });
 
@@ -73,6 +87,8 @@ class LogicGamesApp {
             if (e.key === 'Escape') {
                 if (document.getElementById('success-modal').classList.contains('active')) {
                     this.hideModal();
+                } else if (document.getElementById('set-completion-modal').classList.contains('active')) {
+                    this.hideSetCompletionModal();
                 } else if (this.currentScreen !== 'home') {
                     this.navigateTo('home');
                 }
@@ -156,6 +172,39 @@ class LogicGamesApp {
 
     hideModal() {
         document.getElementById('success-modal').classList.remove('active');
+    }
+
+    showSetCompletionModal(currentSet, maxSets) {
+        const modal = document.getElementById('set-completion-modal');
+        const titleEl = document.getElementById('set-completion-title');
+        const messageEl = document.getElementById('set-completion-message');
+        const progressFillEl = document.getElementById('progress-fill');
+        const progressTextEl = document.getElementById('progress-text');
+        const continueBtn = document.getElementById('continue-next-set');
+
+        if (titleEl) titleEl.textContent = `Set ${currentSet} Complete!`;
+        if (messageEl) messageEl.textContent = currentSet < maxSets ? 
+            'Great job! Ready for the next challenge?' : 
+            'Amazing! You\'ve completed all sets!';
+        
+        if (progressFillEl) {
+            const progress = (currentSet / maxSets) * 100;
+            progressFillEl.style.width = `${progress}%`;
+        }
+        
+        if (progressTextEl) progressTextEl.textContent = `Set ${currentSet} of ${maxSets}`;
+        
+        if (continueBtn) {
+            continueBtn.textContent = currentSet < maxSets ? 
+                'Continue to Next Set' : 
+                'Complete Level';
+        }
+
+        modal.classList.add('active');
+    }
+
+    hideSetCompletionModal() {
+        document.getElementById('set-completion-modal').classList.remove('active');
     }
 
     // Utility methods
