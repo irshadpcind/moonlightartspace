@@ -544,6 +544,9 @@ class BeeGame {
             cell.textContent = '🐛';
         }
 
+        // Show simple notification
+        this.showSimpleNotification('❌ Wrong! You hit a bug!');
+
         this.lives--;
         this.gameState = 'failed';
         this.updateStatus();
@@ -690,6 +693,49 @@ class BeeGame {
         this.resetControls();
 
         // New level started
+    }
+
+    showSimpleNotification(message) {
+        // Create notification using alert-style but prettier
+        const notification = document.createElement('div');
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ef4444;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease-out;
+        `;
+        
+        // Add simple fade animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+                to { opacity: 1; transform: translateX(-50%) translateY(0); }
+            }
+        `;
+        if (!document.querySelector('#simple-notification-style')) {
+            style.id = 'simple-notification-style';
+            document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 2 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 2000);
     }
 
     resetControls() {

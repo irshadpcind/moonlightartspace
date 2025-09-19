@@ -597,7 +597,7 @@ class ThreadlineGame {
 
         // Get actual cell size from CSS
         const cellSize = this.getCellSize();
-        const lineWidth = 4;
+        const lineWidth = 12; // Increased from 4 to 12 (3x size)
 
         for (let i = 0; i < this.path.length - 1; i++) {
             const current = this.path[i];
