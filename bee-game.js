@@ -261,11 +261,7 @@ class BeeGame {
         this.gameState = 'showing-bugs';
         this.startTime = Date.now();
 
-        // Update instructions
-        const instructions = document.getElementById('bee-instructions');
-        if (instructions) {
-            instructions.textContent = 'Memorize the bug positions!';
-        }
+        // Bug flash phase started
 
         // Show bugs for the configured time based on current set
         const config = this.levelConfig[this.currentSet - 1];
@@ -275,9 +271,7 @@ class BeeGame {
             this.gameState = 'drawing-path';
             this.renderGrid();
             
-            if (instructions) {
-                instructions.textContent = 'Draw a path from the bee to the flower without hitting bugs!';
-            }
+            // Path drawing phase started
 
             // Update button states
             const startBtn = document.getElementById('bee-start');
@@ -647,11 +641,7 @@ class BeeGame {
         this.renderGrid();
         this.updateStatus();
         
-        // Update instructions
-        const instructions = document.getElementById('bee-instructions');
-        if (instructions) {
-            instructions.textContent = 'Oops! Try again with a new layout. Watch the bugs carefully!';
-        }
+        // Auto-restart after bug hit
         
         // Auto-start the new set after a brief moment
         setTimeout(() => {
@@ -660,10 +650,7 @@ class BeeGame {
     }
 
     gameOver() {
-        const instructions = document.getElementById('bee-instructions');
-        if (instructions) {
-            instructions.textContent = 'Game Over! The bee hit too many bugs.';
-        }
+        // Game over state
 
         setTimeout(() => {
             this.startNewLevel();
@@ -702,10 +689,7 @@ class BeeGame {
         this.updateStatus();
         this.resetControls();
 
-        const instructions = document.getElementById('bee-instructions');
-        if (instructions) {
-            instructions.textContent = 'Watch carefully! Bugs will flash, then guide the bee to the flower safely.';
-        }
+        // New level started
     }
 
     resetControls() {

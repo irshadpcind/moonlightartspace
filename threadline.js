@@ -2,12 +2,10 @@
 class ThreadlineGame {
     constructor() {
         this.grid = [];
-        this.gridSize = 7; // 7x7 grid
         this.numbers = [];
         this.path = [];
         this.pathLines = []; // Store visual path lines
         this.currentNumber = 1;
-        this.maxNumber = 9;
         this.isDrawing = false;
         this.startTime = null;
         this.moves = 0;
@@ -18,13 +16,17 @@ class ThreadlineGame {
         this.maxHints = 3;
         this.achievements = [];
         
-        // Difficulty configurations - simplified to 5x5 with 1-5 numbers
+        // Difficulty configurations - 6x6 grid to allow for walls and variety
         this.difficultyConfig = {
-            easy: { gridSize: 5, maxNumber: 5, wallCount: 2, timeBonus: 100 },
-            medium: { gridSize: 5, maxNumber: 5, wallCount: 3, timeBonus: 150 },
-            hard: { gridSize: 5, maxNumber: 5, wallCount: 4, timeBonus: 200 },
-            expert: { gridSize: 5, maxNumber: 5, wallCount: 5, timeBonus: 300 }
+            easy: { gridSize: 6, maxNumber: 5, wallCount: 2, timeBonus: 100 },
+            medium: { gridSize: 6, maxNumber: 5, wallCount: 4, timeBonus: 150 },
+            hard: { gridSize: 6, maxNumber: 5, wallCount: 6, timeBonus: 200 },
+            expert: { gridSize: 6, maxNumber: 5, wallCount: 8, timeBonus: 300 }
         };
+        
+        // Set initial grid size from difficulty config
+        this.gridSize = this.difficultyConfig[this.difficulty].gridSize;
+        this.maxNumber = this.difficultyConfig[this.difficulty].maxNumber;
         
         this.init();
     }
@@ -88,64 +90,37 @@ class ThreadlineGame {
     }
 
     generatePuzzle(seed = Date.now()) {
+        // Randomize difficulty for each new puzzle
+        this.randomizeDifficulty();
+        
         // Get difficulty configuration
         const config = this.difficultyConfig[this.difficulty];
         this.gridSize = config.gridSize;
         this.maxNumber = config.maxNumber;
         
-        // Generate Hamiltonian path (visits every cell exactly once)
-        console.log(`Generating puzzle with seed: ${seed}, difficulty: ${this.difficulty}`);
-        const hamiltonianPath = this.generateHamiltonianPath(seed);
-        console.log(`Generated path with ${hamiltonianPath.length} cells`);
-        
         // Initialize empty grid
         this.grid = Array(this.gridSize).fill().map(() => 
             Array(this.gridSize).fill().map(() => ({ 
-                type: 'empty', 
-                number: null, 
+                type: 'empty',
+                number: null,
                 visited: false,
                 wall: false
             }))
         );
 
-        // Place exactly 5 numbers (1-5) at strategic positions along the path
-        this.numbers = [];
+        // Use the provided seed for randomization
+        const puzzleSeed = seed;
+        console.log(`Generating puzzle with difficulty: ${this.difficulty}, gridSize: ${this.gridSize}, seed: ${puzzleSeed}`);
         
-        // Calculate positions for numbers 1-5
-        const totalCells = hamiltonianPath.length;
-        const numberPositions = [];
+        // Generate Hamiltonian path
+        const hamiltonianPath = this.generateHamiltonianPath(puzzleSeed);
+        console.log(`Generated Hamiltonian path with ${hamiltonianPath ? hamiltonianPath.length : 0} cells`);
         
-        // Position 1: Start of path
-        numberPositions.push(0);
+        // Place numbers along the path
+        this.placeNumbers(hamiltonianPath, puzzleSeed);
         
-        // Position 2: Around 25% through the path
-        numberPositions.push(Math.floor(totalCells * 0.25));
-        
-        // Position 3: Around 50% through the path
-        numberPositions.push(Math.floor(totalCells * 0.5));
-        
-        // Position 4: Around 75% through the path
-        numberPositions.push(Math.floor(totalCells * 0.75));
-        
-        // Position 5: End of path
-        numberPositions.push(totalCells - 1);
-        
-        // Place the numbers
-        for (let i = 0; i < this.maxNumber; i++) {
-            const posIndex = numberPositions[i];
-            const pos = hamiltonianPath[posIndex];
-            
-            this.grid[pos.row][pos.col] = {
-                type: 'number',
-                number: i + 1,
-                visited: false,
-                wall: false
-            };
-            this.numbers.push({ number: i + 1, row: pos.row, col: pos.col });
-        }
-
-        // Add walls strategically (not blocking the path)
-        this.addStrategicWalls(seed, hamiltonianPath);
+        // Add strategic walls based on difficulty
+        this.addStrategicWalls(puzzleSeed, hamiltonianPath);
         
         console.log(`Puzzle generated successfully with ${this.numbers.length} numbers and ${this.difficultyConfig[this.difficulty].wallCount} walls`);
 
@@ -157,9 +132,7 @@ class ThreadlineGame {
         this.startTime = Date.now();
         this.moves = 0;
         this.hintsUsed = 0;
-        this.undoStack = [];
-        this.redoStack = [];
-        this.score = 0;
+        this.score = 1000; // Base score
     }
 
     generateHamiltonianPath(seed) {
@@ -258,6 +231,55 @@ class ThreadlineGame {
         return path;
     }
 
+    placeNumbers(hamiltonianPath, seed) {
+        // Clear existing numbers
+        this.numbers = [];
+        
+        // Get difficulty configuration
+        const config = this.difficultyConfig[this.difficulty];
+        const totalCells = hamiltonianPath.length;
+        
+        // Generate positions for numbers along the path
+        const numberPositions = [];
+        
+        // Always place first number at the start
+        numberPositions.push(0);
+        
+        // Place remaining numbers at intervals along the path
+        const interval = Math.floor(totalCells / config.maxNumber);
+        for (let i = 1; i < config.maxNumber - 1; i++) {
+            const basePos = i * interval;
+            // Add some randomness to the position
+            const randomOffset = window.logicGamesApp.randomInt(-1, 1, seed + i);
+            const pos = Math.max(1, Math.min(totalCells - 2, basePos + randomOffset));
+            numberPositions.push(pos);
+        }
+        
+        // Always place last number at the end
+        numberPositions.push(totalCells - 1);
+        
+        // Place the numbers on the grid
+        for (let i = 0; i < config.maxNumber; i++) {
+            const posIndex = numberPositions[i];
+            const pos = hamiltonianPath[posIndex];
+            
+            this.grid[pos.row][pos.col] = {
+                type: 'number',
+                number: i + 1,
+                visited: false,
+                wall: false
+            };
+            this.numbers.push({ number: i + 1, row: pos.row, col: pos.col });
+        }
+        
+        console.log(`Placed ${this.numbers.length} numbers on the grid`);
+    }
+
+    getSeed() {
+        // Generate a seed based on current date for daily puzzles
+        return window.logicGamesApp ? window.logicGamesApp.getDailyPuzzleSeed() : Date.now();
+    }
+
     addStrategicWalls(seed, hamiltonianPath) {
         const config = this.difficultyConfig[this.difficulty];
         const wallCount = config.wallCount;
@@ -302,17 +324,26 @@ class ThreadlineGame {
 
     renderGrid() {
         const container = document.getElementById('threadline-grid');
-        if (!container) return;
+        if (!container) {
+            console.error('Threadline grid container not found!');
+            return;
+        }
 
+        console.log(`Rendering grid: ${this.gridSize}x${this.gridSize} with ${this.numbers.length} numbers`);
+        
         container.innerHTML = '';
         container.style.gridTemplateColumns = `repeat(${this.gridSize}, 1fr)`;
 
+        let cellCount = 0;
         for (let row = 0; row < this.gridSize; row++) {
             for (let col = 0; col < this.gridSize; col++) {
                 const cell = this.createCell(row, col);
                 container.appendChild(cell);
+                cellCount++;
             }
         }
+        
+        console.log(`Rendered ${cellCount} cells in ${this.gridSize}x${this.gridSize} grid`);
 
         // Render path lines
         this.renderPathLines();
@@ -778,13 +809,23 @@ class ThreadlineGame {
 
     newPuzzle() {
         try {
+            console.log('=== Starting new puzzle generation ===');
+            console.log('Current solved state:', this.solved);
+            
             // Generate a truly random seed for variety
             const seed = Math.floor(Math.random() * 1000000) + Date.now();
             console.log('Generating new puzzle with seed:', seed);
+            
             this.generatePuzzle(seed);
+            
+            console.log('After generatePuzzle - solved state:', this.solved);
+            console.log('Grid size:', this.gridSize, 'Numbers:', this.numbers.length);
+            
             this.renderGrid();
             this.updateStatus();
+            
             console.log('New puzzle generated successfully');
+            console.log('=== New puzzle generation complete ===');
         } catch (error) {
             console.error('Error generating new puzzle:', error);
             // Fallback to daily puzzle if random generation fails
@@ -837,6 +878,13 @@ class ThreadlineGame {
 
 
     // Difficulty management
+    randomizeDifficulty() {
+        const difficulties = ['easy', 'medium', 'hard', 'expert'];
+        const randomIndex = Math.floor(Math.random() * difficulties.length);
+        this.difficulty = difficulties[randomIndex];
+        console.log(`Random difficulty selected: ${this.difficulty}`);
+    }
+    
     setDifficulty(difficulty) {
         if (this.difficultyConfig[difficulty]) {
             this.difficulty = difficulty;

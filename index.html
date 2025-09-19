@@ -67,10 +67,27 @@
                 </div>
             </div>
 
-            <div class="game-content">
-                <div class="game-instructions">
-                    <p>Connect numbers 1-9 in order using one continuous line. Visit every empty cell exactly once!</p>
+            <!-- Game Stats at Top -->
+            <div class="game-status top-stats">
+                <div class="status-item">
+                    <span class="status-label">Current:</span>
+                    <span id="current-number" class="status-value">1</span>
                 </div>
+                <div class="status-item">
+                    <span class="status-label">Cells Left:</span>
+                    <span id="cells-remaining" class="status-value">0</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Score:</span>
+                    <span id="threadline-score" class="status-value">0</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Hints:</span>
+                    <span id="threadline-hints" class="status-value">3</span>
+                </div>
+            </div>
+
+            <div class="game-content">
 
                 <div class="threadline-container">
                     <div id="threadline-grid" class="threadline-grid">
@@ -78,39 +95,21 @@
                     </div>
                 </div>
 
-        <div class="game-controls">
-            <button id="threadline-reset" class="control-btn">Reset</button>
-            <button id="threadline-hint" class="control-btn">Hint</button>
-            <button id="threadline-new" class="control-btn primary">New Puzzle</button>
-        </div>
+                <!-- Horizontal Control Buttons -->
+                <div class="game-controls horizontal-controls">
+                    <button id="threadline-reset" class="control-btn">Reset</button>
+                    <button id="threadline-hint" class="control-btn">Hint</button>
+                    <button id="threadline-new" class="control-btn primary">New Puzzle</button>
+                </div>
 
-                <div class="difficulty-selector">
-                    <label for="difficulty-select">Difficulty:</label>
+                <!-- Hidden difficulty selector - will be randomized -->
+                <div class="difficulty-selector" style="display: none;">
                     <select id="difficulty-select" class="difficulty-select">
                         <option value="easy">Easy (2 walls)</option>
                         <option value="medium" selected>Medium (3 walls)</option>
                         <option value="hard">Hard (4 walls)</option>
                         <option value="expert">Expert (5 walls)</option>
                     </select>
-                </div>
-
-                <div class="game-status">
-                    <div class="status-item">
-                        <span class="status-label">Current:</span>
-                        <span id="current-number" class="status-value">1</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">Cells Left:</span>
-                        <span id="cells-remaining" class="status-value">0</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">Score:</span>
-                        <span id="threadline-score" class="status-value">0</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">Hints:</span>
-                        <span id="threadline-hints" class="status-value">3</span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -126,10 +125,19 @@
                 </div>
             </div>
 
-            <div class="game-content">
-                <div class="game-instructions">
-                    <p id="bee-instructions">Watch carefully! Bugs will flash, then guide the bee to the flower safely.</p>
+            <!-- Game Stats at Top -->
+            <div class="game-status top-stats">
+                <div class="status-item">
+                    <span class="status-label">Lives:</span>
+                    <span id="bee-lives" class="status-value">3</span>
                 </div>
+                <div class="status-item">
+                    <span class="status-label">Score:</span>
+                    <span id="bee-score" class="status-value">0</span>
+                </div>
+            </div>
+
+            <div class="game-content">
 
                 <div class="bee-container">
                     <div id="bee-grid" class="bee-grid">
@@ -137,21 +145,11 @@
                     </div>
                 </div>
 
-                <div class="game-controls">
+                <!-- Horizontal Control Buttons -->
+                <div class="game-controls horizontal-controls">
                     <button id="bee-start" class="control-btn primary">Start Game</button>
                     <button id="bee-reset" class="control-btn">Reset Path</button>
                     <button id="bee-new-level" class="control-btn">New Level</button>
-                </div>
-
-                <div class="game-status">
-                    <div class="status-item">
-                        <span class="status-label">Lives:</span>
-                        <span id="bee-lives" class="status-value">3</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">Score:</span>
-                        <span id="bee-score" class="status-value">0</span>
-                    </div>
                 </div>
             </div>
         </div>
