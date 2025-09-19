@@ -94,7 +94,9 @@ class ThreadlineGame {
         this.maxNumber = config.maxNumber;
         
         // Generate Hamiltonian path (visits every cell exactly once)
+        console.log(`Generating puzzle with seed: ${seed}, difficulty: ${this.difficulty}`);
         const hamiltonianPath = this.generateHamiltonianPath(seed);
+        console.log(`Generated path with ${hamiltonianPath.length} cells`);
         
         // Initialize empty grid
         this.grid = Array(this.gridSize).fill().map(() => 
@@ -144,6 +146,8 @@ class ThreadlineGame {
 
         // Add walls strategically (not blocking the path)
         this.addStrategicWalls(seed, hamiltonianPath);
+        
+        console.log(`Puzzle generated successfully with ${this.numbers.length} numbers and ${this.difficultyConfig[this.difficulty].wallCount} walls`);
 
         // Reset game state
         this.path = [];
@@ -159,57 +163,76 @@ class ThreadlineGame {
     }
 
     generateHamiltonianPath(seed) {
-        // Use a simplified Hamiltonian path generator for 5x5 grid
-        const path = [];
-        const visited = new Set();
+        // Try multiple times to generate a valid Hamiltonian path
+        for (let attempt = 0; attempt < 10; attempt++) {
+            const path = this.tryGenerateHamiltonianPath(seed + attempt);
+            if (path && path.length === this.gridSize * this.gridSize) {
+                return path;
+            }
+        }
         
+        // Fallback: generate a simple snake pattern if all attempts fail
+        console.log('Hamiltonian path generation failed, using snake pattern');
+        return this.generateSnakePath();
+    }
+
+    tryGenerateHamiltonianPath(seed) {
         // Start from a random position
         const startRow = window.logicGamesApp.randomInt(0, this.gridSize - 1, seed);
         const startCol = window.logicGamesApp.randomInt(0, this.gridSize - 1, seed);
         
-        // Use backtracking to find a Hamiltonian path
-        const stack = [{ row: startRow, col: startCol, path: [{ row: startRow, col: startCol }] }];
+        const path = [];
+        const visited = new Set();
         
-        while (stack.length > 0) {
-            const current = stack.pop();
-            const { row, col, path: currentPath } = current;
+        // Use recursive backtracking
+        if (this.findHamiltonianPath(startRow, startCol, path, visited, seed)) {
+            return path;
+        }
+        
+        return null;
+    }
+
+    findHamiltonianPath(row, col, path, visited, seed) {
+        // Add current cell to path
+        path.push({ row, col });
+        visited.add(`${row},${col}`);
+        
+        // If we've visited all cells, we found a complete path
+        if (path.length === this.gridSize * this.gridSize) {
+            return true;
+        }
+        
+        // Try all possible directions
+        const directions = [
+            { dr: -1, dc: 0 }, // up
+            { dr: 1, dc: 0 },  // down
+            { dr: 0, dc: -1 }, // left
+            { dr: 0, dc: 1 }   // right
+        ];
+        
+        // Shuffle directions for variety
+        const shuffledDirs = window.logicGamesApp.shuffleArray(directions, seed + path.length);
+        
+        for (const dir of shuffledDirs) {
+            const newRow = row + dir.dr;
+            const newCol = col + dir.dc;
+            const key = `${newRow},${newCol}`;
             
-            if (currentPath.length === this.gridSize * this.gridSize) {
-                return currentPath; // Found complete Hamiltonian path
-            }
-            
-            // Try all possible directions
-            const directions = [
-                { dr: -1, dc: 0 }, // up
-                { dr: 1, dc: 0 },  // down
-                { dr: 0, dc: -1 }, // left
-                { dr: 0, dc: 1 }   // right
-            ];
-            
-            // Shuffle directions for variety
-            const shuffledDirs = window.logicGamesApp.shuffleArray(directions, seed + currentPath.length);
-            
-            for (const dir of shuffledDirs) {
-                const newRow = row + dir.dr;
-                const newCol = col + dir.dc;
-                const key = `${newRow},${newCol}`;
+            if (newRow >= 0 && newRow < this.gridSize && 
+                newCol >= 0 && newCol < this.gridSize &&
+                !visited.has(key)) {
                 
-                if (newRow >= 0 && newRow < this.gridSize && 
-                    newCol >= 0 && newCol < this.gridSize &&
-                    !visited.has(key)) {
-                    
-                    visited.add(key);
-                    stack.push({
-                        row: newRow,
-                        col: newCol,
-                        path: [...currentPath, { row: newRow, col: newCol }]
-                    });
+                // Recursively try this path
+                if (this.findHamiltonianPath(newRow, newCol, path, visited, seed)) {
+                    return true;
                 }
             }
         }
         
-        // Fallback: generate a simple snake pattern if Hamiltonian path fails
-        return this.generateSnakePath();
+        // Backtrack: remove current cell from path
+        path.pop();
+        visited.delete(`${row},${col}`);
+        return false;
     }
 
     generateSnakePath() {
@@ -250,23 +273,31 @@ class ThreadlineGame {
         for (let row = 0; row < this.gridSize; row++) {
             for (let col = 0; col < this.gridSize; col++) {
                 const key = `${row},${col}`;
-                if (!pathSet.has(key) && this.grid[row][col].type === 'empty') {
+                const cell = this.grid[row][col];
+                // Only place walls in cells that are not part of the solution path
+                // and are not number cells
+                if (!pathSet.has(key) && cell.type === 'empty') {
                     availableCells.push({ row, col });
                 }
             }
         }
+        
+        // If we don't have enough available cells, reduce wall count
+        const actualWallCount = Math.min(wallCount, availableCells.length);
         
         // Shuffle and place walls
         const shuffledCells = window.logicGamesApp.shuffleArray(availableCells, seed + 1000);
         let wallsPlaced = 0;
         
         for (const cell of shuffledCells) {
-            if (wallsPlaced >= wallCount) break;
+            if (wallsPlaced >= actualWallCount) break;
             
             this.grid[cell.row][cell.col].wall = true;
             this.grid[cell.row][cell.col].type = 'wall';
             wallsPlaced++;
         }
+        
+        console.log(`Placed ${wallsPlaced} walls out of ${wallCount} requested`);
     }
 
     renderGrid() {
@@ -329,14 +360,17 @@ class ThreadlineGame {
             this.handleCellMouseUp(e, row, col);
         });
 
-        // Touch events for mobile
+        // Touch events for mobile with scroll prevention
         cell.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            e.stopPropagation();
+            document.body.style.overflow = 'hidden'; // Prevent scrolling
             this.handleCellMouseDown(e, row, col);
-        });
+        }, { passive: false });
 
         cell.addEventListener('touchmove', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             if (this.isDrawing) {
                 const touch = e.touches[0];
                 const element = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -346,12 +380,14 @@ class ThreadlineGame {
                     this.handleCellMouseEnter(e, touchRow, touchCol);
                 }
             }
-        });
+        }, { passive: false });
 
         cell.addEventListener('touchend', (e) => {
             e.preventDefault();
+            e.stopPropagation();
+            document.body.style.overflow = ''; // Re-enable scrolling
             this.isDrawing = false;
-        });
+        }, { passive: false });
 
         // Prevent context menu
         cell.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -689,10 +725,10 @@ class ThreadlineGame {
                 }
             );
             
-            // Generate new random level after showing completion
-            setTimeout(() => {
-                this.newPuzzle();
-            }, 2000); // Wait 2 seconds after modal shows
+            // Don't auto-generate new puzzle - let user choose
+            // setTimeout(() => {
+            //     this.newPuzzle();
+            // }, 2000); // Wait 2 seconds after modal shows
         }, 500);
     }
 
@@ -741,11 +777,21 @@ class ThreadlineGame {
     }
 
     newPuzzle() {
-        // Generate a truly random seed for variety
-        const seed = Math.floor(Math.random() * 1000000) + Date.now();
-        this.generatePuzzle(seed);
-        this.renderGrid();
-        this.updateStatus();
+        try {
+            // Generate a truly random seed for variety
+            const seed = Math.floor(Math.random() * 1000000) + Date.now();
+            console.log('Generating new puzzle with seed:', seed);
+            this.generatePuzzle(seed);
+            this.renderGrid();
+            this.updateStatus();
+            console.log('New puzzle generated successfully');
+        } catch (error) {
+            console.error('Error generating new puzzle:', error);
+            // Fallback to daily puzzle if random generation fails
+            this.generateDailyPuzzle();
+            this.renderGrid();
+            this.updateStatus();
+        }
     }
 
     updateStatus() {
@@ -794,9 +840,9 @@ class ThreadlineGame {
     setDifficulty(difficulty) {
         if (this.difficultyConfig[difficulty]) {
             this.difficulty = difficulty;
-            this.generatePuzzle();
-            this.renderGrid();
-            this.updateStatus();
+            console.log(`Difficulty changed to: ${difficulty}`);
+            // Generate new puzzle with current difficulty
+            this.newPuzzle();
         }
     }
 

@@ -17,13 +17,13 @@ class BeeGame {
         this.startTime = null;
         this.isDrawing = false;
         
-        // Level configuration - progressive difficulty
+        // Level configuration - progressive difficulty with timing
         this.levelConfig = [
-            { set: 1, gridSize: 5, bugCount: 2 },
-            { set: 2, gridSize: 5, bugCount: 3 },
-            { set: 3, gridSize: 5, bugCount: 4 },
-            { set: 4, gridSize: 5, bugCount: 5 },
-            { set: 5, gridSize: 6, bugCount: 6 }
+            { set: 1, gridSize: 5, bugCount: 2, bugDisplayTime: 2000 },   // 2 seconds
+            { set: 2, gridSize: 5, bugCount: 3, bugDisplayTime: 1500 },   // 1.5 seconds
+            { set: 3, gridSize: 5, bugCount: 4, bugDisplayTime: 1400 },   // 1.4 seconds
+            { set: 4, gridSize: 5, bugCount: 5, bugDisplayTime: 1300 },   // 1.3 seconds
+            { set: 5, gridSize: 6, bugCount: 6, bugDisplayTime: 1300 }    // 1.3 seconds
         ];
 
         this.init();
@@ -171,8 +171,13 @@ class BeeGame {
 
         const gridCell = this.grid[row][col];
 
-        // Set cell content and type - bee and flower only visible after bug flash
-        if (this.gameState !== 'showing-bugs') {
+        // Show bugs during flash phase ONLY
+        if (this.gameState === 'showing-bugs' && gridCell.hasBug) {
+            cell.classList.add('bug');
+            cell.textContent = '🐛';
+        }
+        // Show bee and flower only during drawing phase (after bugs disappear)
+        else if (this.gameState === 'drawing-path') {
             if (gridCell.type === 'bee') {
                 cell.classList.add('bee');
                 cell.textContent = '🐝';
@@ -181,16 +186,20 @@ class BeeGame {
                 cell.textContent = '🌸';
             }
         }
-
-        // Show bugs during flash phase
-        if (this.gameState === 'showing-bugs' && gridCell.hasBug) {
-            cell.classList.add('bug');
-            cell.textContent = '🐛';
+        // During ready state, show nothing (empty grid)
+        else if (this.gameState === 'ready') {
+            // Empty cells only
         }
 
-        // Show path
+        // Show path - make it visible even on flower tile
         if (gridCell.visited) {
             cell.classList.add('path');
+            // Add a strong path indicator for better visibility on flower
+            if (gridCell.type === 'flower') {
+                cell.style.boxShadow = 'inset 0 0 0 6px #22c55e, 0 0 12px rgba(34, 197, 94, 0.5)';
+                cell.style.backgroundColor = 'rgba(34, 197, 94, 0.3)';
+                cell.style.border = '4px solid #22c55e';
+            }
         }
 
         // Add event listeners for path drawing
@@ -210,14 +219,17 @@ class BeeGame {
                 this.handleCellMouseUp(e, row, col);
             });
 
-            // Touch events for mobile
+            // Touch events for mobile with scroll prevention
             cell.addEventListener('touchstart', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
+                document.body.style.overflow = 'hidden'; // Prevent scrolling
                 this.handleCellMouseDown(e, row, col);
-            });
+            }, { passive: false });
 
             cell.addEventListener('touchmove', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 if (this.isDrawing) {
                     const touch = e.touches[0];
                     const element = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -227,12 +239,14 @@ class BeeGame {
                         this.handleCellMouseEnter(e, touchRow, touchCol);
                     }
                 }
-            });
+            }, { passive: false });
 
             cell.addEventListener('touchend', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
+                document.body.style.overflow = ''; // Re-enable scrolling
                 this.isDrawing = false;
-            });
+            }, { passive: false });
         }
 
         // Prevent context menu
@@ -253,7 +267,8 @@ class BeeGame {
             instructions.textContent = 'Memorize the bug positions!';
         }
 
-        // Show bugs for 1 second
+        // Show bugs for the configured time based on current set
+        const config = this.levelConfig[this.currentSet - 1];
         this.renderGrid();
 
         setTimeout(() => {
@@ -270,7 +285,7 @@ class BeeGame {
             if (startBtn) startBtn.disabled = true;
             if (resetBtn) resetBtn.disabled = false;
 
-        }, 1000);
+        }, config.bugDisplayTime);
     }
 
     handleCellMouseDown(e, row, col) {
@@ -396,55 +411,27 @@ class BeeGame {
         const existingLines = container.querySelectorAll('.path-line, .path-dot');
         existingLines.forEach(line => line.remove());
 
-        if (this.path.length < 2) return;
+        if (this.path.length < 1) return; // Allow rendering even with just one cell (the bee)
 
         // Get actual cell size from CSS
         const cellSize = this.getCellSize();
-        const lineWidth = 4;
+        const lineWidth = 12; // Increased from 4 to 12 (3x larger)
 
+        // Draw lines between all consecutive cells in the path
         for (let i = 0; i < this.path.length - 1; i++) {
             const current = this.path[i];
             const next = this.path[i + 1];
             
-            const line = document.createElement('div');
-            line.className = 'path-line';
-            
-            // Calculate positions from cell centers (accounting for grid gaps)
-            const gridGap = 2; // CSS gap between cells
-            const currentCenterX = current.col * (cellSize + gridGap) + cellSize / 2;
-            const currentCenterY = current.row * (cellSize + gridGap) + cellSize / 2;
-            const nextCenterX = next.col * (cellSize + gridGap) + cellSize / 2;
-            const nextCenterY = next.row * (cellSize + gridGap) + cellSize / 2;
-
-            if (current.row === next.row) {
-                // Horizontal line
-                const left = Math.min(currentCenterX, nextCenterX);
-                const width = Math.abs(nextCenterX - currentCenterX);
-                
-                line.style.position = 'absolute';
-                line.style.left = `${left}px`;
-                line.style.top = `${currentCenterY - lineWidth / 2}px`;
-                line.style.width = `${width}px`;
-                line.style.height = `${lineWidth}px`;
-                line.style.backgroundColor = '#22c55e';
-                line.style.borderRadius = `${lineWidth / 2}px`;
-                line.style.zIndex = '10';
-            } else if (current.col === next.col) {
-                // Vertical line
-                const top = Math.min(currentCenterY, nextCenterY);
-                const height = Math.abs(nextCenterY - currentCenterY);
-                
-                line.style.position = 'absolute';
-                line.style.left = `${currentCenterX - lineWidth / 2}px`;
-                line.style.top = `${top}px`;
-                line.style.width = `${lineWidth}px`;
-                line.style.height = `${height}px`;
-                line.style.backgroundColor = '#22c55e';
-                line.style.borderRadius = `${lineWidth / 2}px`;
-                line.style.zIndex = '10';
+            this.drawPathLine(container, current, next, cellSize, lineWidth);
+        }
+        
+        // If path has reached the flower, ensure there's a visible connection
+        if (this.path.length > 0) {
+            const lastCell = this.path[this.path.length - 1];
+            if (lastCell.row === this.flowerPosition.row && lastCell.col === this.flowerPosition.col) {
+                // Add extra visual indicator that we've reached the flower
+                this.addFlowerConnectionIndicator(container, lastCell, cellSize, lineWidth);
             }
-
-            container.appendChild(line);
         }
 
         // Add dots at path intersections for better continuity
@@ -455,16 +442,104 @@ class BeeGame {
             const dot = document.createElement('div');
             dot.className = 'path-dot';
             dot.style.position = 'absolute';
-            dot.style.left = `${pathPos.col * (cellSize + gridGap) + cellSize / 2 - 3}px`;
-            dot.style.top = `${pathPos.row * (cellSize + gridGap) + cellSize / 2 - 3}px`;
-            dot.style.width = '6px';
-            dot.style.height = '6px';
+            dot.style.left = `${pathPos.col * (cellSize + gridGap) + cellSize / 2 - 6}px`;
+            dot.style.top = `${pathPos.row * (cellSize + gridGap) + cellSize / 2 - 6}px`;
+            dot.style.width = '12px';
+            dot.style.height = '12px';
             dot.style.backgroundColor = '#22c55e';
             dot.style.borderRadius = '50%';
-            dot.style.zIndex = '15';
+            dot.style.zIndex = '25'; // Even higher z-index to show above everything
+            
+            // Make the flower dot extra visible
+            if (pathPos.row === this.flowerPosition.row && pathPos.col === this.flowerPosition.col) {
+                dot.style.width = '16px';
+                dot.style.height = '16px';
+                dot.style.left = `${pathPos.col * (cellSize + gridGap) + cellSize / 2 - 8}px`;
+                dot.style.top = `${pathPos.row * (cellSize + gridGap) + cellSize / 2 - 8}px`;
+                dot.style.boxShadow = '0 0 0 2px #ffffff, 0 0 8px #22c55e';
+            }
             
             container.appendChild(dot);
         }
+    }
+
+    drawPathLine(container, current, next, cellSize, lineWidth) {
+        const line = document.createElement('div');
+        line.className = 'path-line';
+        
+        // Calculate positions from cell centers (accounting for grid gaps)
+        const gridGap = 2; // CSS gap between cells
+        const currentCenterX = current.col * (cellSize + gridGap) + cellSize / 2;
+        const currentCenterY = current.row * (cellSize + gridGap) + cellSize / 2;
+        const nextCenterX = next.col * (cellSize + gridGap) + cellSize / 2;
+        const nextCenterY = next.row * (cellSize + gridGap) + cellSize / 2;
+
+        if (current.row === next.row) {
+            // Horizontal line
+            const left = Math.min(currentCenterX, nextCenterX);
+            const width = Math.abs(nextCenterX - currentCenterX);
+            
+            line.style.position = 'absolute';
+            line.style.left = `${left}px`;
+            line.style.top = `${currentCenterY - lineWidth / 2}px`;
+            line.style.width = `${width}px`;
+            line.style.height = `${lineWidth}px`;
+            line.style.backgroundColor = '#22c55e';
+            line.style.borderRadius = `${lineWidth / 2}px`;
+            line.style.zIndex = '15';
+        } else if (current.col === next.col) {
+            // Vertical line
+            const top = Math.min(currentCenterY, nextCenterY);
+            const height = Math.abs(nextCenterY - currentCenterY);
+            
+            line.style.position = 'absolute';
+            line.style.left = `${currentCenterX - lineWidth / 2}px`;
+            line.style.top = `${top}px`;
+            line.style.width = `${lineWidth}px`;
+            line.style.height = `${height}px`;
+            line.style.backgroundColor = '#22c55e';
+            line.style.borderRadius = `${lineWidth / 2}px`;
+            line.style.zIndex = '15';
+        }
+
+        container.appendChild(line);
+    }
+
+    addFlowerConnectionIndicator(container, flowerCell, cellSize, lineWidth) {
+        // Add a cross-pattern on the flower to show clear path connection
+        const gridGap = 2;
+        const centerX = flowerCell.col * (cellSize + gridGap) + cellSize / 2;
+        const centerY = flowerCell.row * (cellSize + gridGap) + cellSize / 2;
+        const crossSize = cellSize * 0.6;
+        
+        // Horizontal cross line
+        const hLine = document.createElement('div');
+        hLine.className = 'path-line flower-cross';
+        hLine.style.position = 'absolute';
+        hLine.style.left = `${centerX - crossSize / 2}px`;
+        hLine.style.top = `${centerY - lineWidth / 2}px`;
+        hLine.style.width = `${crossSize}px`;
+        hLine.style.height = `${lineWidth}px`;
+        hLine.style.backgroundColor = '#22c55e';
+        hLine.style.borderRadius = `${lineWidth / 2}px`;
+        hLine.style.zIndex = '30';
+        hLine.style.boxShadow = '0 0 8px #22c55e';
+        
+        // Vertical cross line
+        const vLine = document.createElement('div');
+        vLine.className = 'path-line flower-cross';
+        vLine.style.position = 'absolute';
+        vLine.style.left = `${centerX - lineWidth / 2}px`;
+        vLine.style.top = `${centerY - crossSize / 2}px`;
+        vLine.style.width = `${lineWidth}px`;
+        vLine.style.height = `${crossSize}px`;
+        vLine.style.backgroundColor = '#22c55e';
+        vLine.style.borderRadius = `${lineWidth / 2}px`;
+        vLine.style.zIndex = '30';
+        vLine.style.boxShadow = '0 0 8px #22c55e';
+        
+        container.appendChild(hLine);
+        container.appendChild(vLine);
     }
 
     hitBug(row, col) {
@@ -483,9 +558,10 @@ class BeeGame {
             if (this.lives <= 0) {
                 this.gameOver();
             } else {
-                this.retrySet();
+                // Auto-restart with new random set instead of just retrying
+                this.autoRestartAfterBugHit();
             }
-        }, 1000);
+        }, 1500); // Slightly longer delay to show the bug
     }
 
     reachedFlower() {
@@ -565,6 +641,24 @@ class BeeGame {
         this.resetControls();
     }
 
+    autoRestartAfterBugHit() {
+        // Generate a new random set layout
+        this.generateSet();
+        this.renderGrid();
+        this.updateStatus();
+        
+        // Update instructions
+        const instructions = document.getElementById('bee-instructions');
+        if (instructions) {
+            instructions.textContent = 'Oops! Try again with a new layout. Watch the bugs carefully!';
+        }
+        
+        // Auto-start the new set after a brief moment
+        setTimeout(() => {
+            this.startSet();
+        }, 1000);
+    }
+
     gameOver() {
         const instructions = document.getElementById('bee-instructions');
         if (instructions) {
@@ -582,6 +676,14 @@ class BeeGame {
             for (let col = 0; col < this.gridSize; col++) {
                 this.grid[row][col].visited = false;
             }
+        }
+
+        // Clear any flower styling
+        const flowerCell = document.querySelector(`[data-row="${this.flowerPosition.row}"][data-col="${this.flowerPosition.col}"]`);
+        if (flowerCell) {
+            flowerCell.style.boxShadow = '';
+            flowerCell.style.backgroundColor = '';
+            flowerCell.style.border = '';
         }
 
         this.path = [];
@@ -602,7 +704,7 @@ class BeeGame {
 
         const instructions = document.getElementById('bee-instructions');
         if (instructions) {
-            instructions.textContent = 'Watch carefully! Bugs will flash for 1 second, then guide the bee to the flower safely.';
+            instructions.textContent = 'Watch carefully! Bugs will flash, then guide the bee to the flower safely.';
         }
     }
 
