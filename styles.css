@@ -911,6 +911,13 @@ body {
         flex-direction: column;
         align-items: center;
     }
+    
+    /* Override for horizontal controls on mobile */
+    .horizontal-controls {
+        flex-direction: row !important;
+        align-items: center;
+        justify-content: center;
+    }
 
     .control-btn {
         width: 100%;
