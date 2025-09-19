@@ -876,6 +876,23 @@ body {
         font-size: 1.1rem;
     }
 
+    /* Mobile buttons - hide hint, compact layout */
+    .horizontal-controls {
+        gap: 0.75rem;
+        margin: 1rem 0;
+    }
+    
+    .horizontal-controls .control-btn {
+        min-width: 100px;
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+    }
+    
+    /* Hide hint button on mobile */
+    .horizontal-controls .control-btn:nth-child(2) {
+        display: none;
+    }
+
     .game-content {
         padding: 1rem;
     }
@@ -953,6 +970,23 @@ body {
     
     .top-stats .status-value {
         font-size: 1rem;
+    }
+    
+    /* Extra small screens - compact buttons */
+    .horizontal-controls {
+        gap: 0.5rem;
+        margin: 0.75rem 0;
+    }
+    
+    .horizontal-controls .control-btn {
+        min-width: 90px;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.85rem;
+    }
+    
+    /* Hide hint button on small screens too */
+    .horizontal-controls .control-btn:nth-child(2) {
+        display: none;
     }
 }
 
